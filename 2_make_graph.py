@@ -80,7 +80,7 @@ for id_a, user_a in nodes.items():
 
 
 # Simulate graph in NetworkX
-G = nx.DiGraph(links)
+# G = nx.DiGraph(links)
 
 # Add name and avatar_url to node attribute
 names = {}
