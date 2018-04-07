@@ -1,5 +1,5 @@
 import json
-
+import os
 import networkx as nx
 import unicodecsv as csv
 from tweepy import OAuthHandler, API, TweepError
@@ -36,6 +36,16 @@ with open('twitter_followers.csv', 'rbU') as f:
             'name': name,
             'avatar_url': avatar_url
         }
+
+# Load finished links frindship
+if os.path.exists('twitter_graph.json'):
+    with open('twitter_graph.json', 'rbU') as f:
+        try:
+            data = json.loads(f.read())
+            for l in data['links']:
+                links.append((l['source'], l['target']))
+        except:
+            pass
 
 # Determine friendship between each node
 current_iteration = 1;
@@ -77,6 +87,25 @@ for id_a, user_a in nodes.items():
             if user_b_status.followed_by:
                 links.append((user_b['id'], user_a['id']))
 
+            ### Since it will take a long time, it's worth to save data in every iteration,
+            ### so everytime you can resume it, without have to start from beginning
+            # Simulate graph in NetworkX
+            G = nx.DiGraph(links)
+
+            # Add name and avatar_url to node attribute
+            names = {}
+            avatars = {}
+            for id, node in nodes.items():
+                names[id] = node['name']
+                avatars[id] = node['avatar_url']
+
+            nx.set_node_attributes(G, names, 'name')
+            nx.set_node_attributes(G, avatars, 'avatar_url')
+
+            # Save the graph in a .json file
+            with open('twitter_graph.json', 'wb') as f:
+                f.write(json.dumps(nx.json_graph.node_link_data(G)).encode('utf-8'))
+
         except TweepError as e:
             pass
 
@@ -87,22 +116,22 @@ for id_a, user_a in nodes.items():
         current_iteration += 1
 
 
-# Simulate graph in NetworkX
-G = nx.DiGraph(links)
-
-# Add name and avatar_url to node attribute
-names = {}
-avatars = {}
-for id, node in nodes.items():
-    names[id] = node['name']
-    avatars[id] = node['avatar_url']
-
-nx.set_node_attributes(G, 'name', names)
-nx.set_node_attributes(G, 'avatar_url', avatars)
-
-# Optional: preview
-# nx.draw(G)
-
-# Save the graph in a .json file
-with open('twitter_graph.json', 'wb') as f:
-    f.write(json.dumps(nx.json_graph.node_link_data(G)))
+# # Simulate graph in NetworkX
+# G = nx.DiGraph(links)
+#
+# # Add name and avatar_url to node attribute
+# names = {}
+# avatars = {}
+# for id, node in nodes.items():
+#     names[id] = node['name']
+#     avatars[id] = node['avatar_url']
+#
+# nx.set_node_attributes(G, 'name', names)
+# nx.set_node_attributes(G, 'avatar_url', avatars)
+#
+# # Optional: preview
+# # nx.draw(G)
+#
+# # Save the graph in a .json file
+# with open('twitter_graph.json', 'wb') as f:
+#     f.write(json.dumps(nx.json_graph.node_link_data(G)))
