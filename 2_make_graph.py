@@ -2,7 +2,7 @@ import json
 
 import networkx as nx
 import unicodecsv as csv
-from tweepy import OAuthHandler, API
+from tweepy import OAuthHandler, API, TweepError
 
 from twitter_api_config import *
 
@@ -52,25 +52,33 @@ for id_a, user_a in nodes.items():
         if (id_a, id_b) in processed_friendship:
             continue
 
-        # Check friendship between followinger and follower
-        user_a_status, user_b_status = api.show_friendship(source_id=id_a, target_id=id_b)
+        # If error tweepy.error.TweepError: Not authorized is happened,
+        # It might be that the particular user had protected tweets,
+        # So, catch and skip it.
+        # See: https://stackoverflow.com/questions/19544401/tweepy-not-authorized-tweepy-error-tweeperror-not-authorized
+        try :
+            # Check friendship between followinger and follower
+            user_a_status, user_b_status = api.show_friendship(source_id=id_a, target_id=id_b)
 
-        # Print on-screen info to see the progress
-        print('{} of {}'.format(current_iteration, total_iteration))
+            # Print on-screen info to see the progress
+            print('{} of {}'.format(current_iteration, total_iteration))
 
-        print('Is {} followed by {} ? {}'.format(user_a['name'], user_b['name'],
-                                                 'Yes' if user_a_status.followed_by else 'No'))
+            print('Is {} followed by {} ? {}'.format(user_a['name'], user_b['name'],
+                                                     'Yes' if user_a_status.followed_by else 'No'))
 
-        print('Is {} followed by {} ? {}'.format(user_b['name'], user_a['name'],
-                                                 'Yes' if user_b_status.followed_by else 'No'))
+            print('Is {} followed by {} ? {}'.format(user_b['name'], user_a['name'],
+                                                     'Yes' if user_b_status.followed_by else 'No'))
 
-        # If follower is followed by followinger, then add to links
-        if user_a_status.followed_by:
-            links.append((user_a['id'], user_b['id']))
+            # If follower is followed by followinger, then add to links
+            if user_a_status.followed_by:
+                links.append((user_a['id'], user_b['id']))
 
-        # If followinger is followed by follower, then add to links
-        if user_b_status.followed_by:
-            links.append((user_b['id'], user_a['id']))
+            # If followinger is followed by follower, then add to links
+            if user_b_status.followed_by:
+                links.append((user_b['id'], user_a['id']))
+
+        except TweepError as e:
+            pass
 
         # Add to processed_friendship
         processed_friendship.append((id_a, id_b))
@@ -80,7 +88,7 @@ for id_a, user_a in nodes.items():
 
 
 # Simulate graph in NetworkX
-# G = nx.DiGraph(links)
+G = nx.DiGraph(links)
 
 # Add name and avatar_url to node attribute
 names = {}
@@ -93,7 +101,7 @@ nx.set_node_attributes(G, 'name', names)
 nx.set_node_attributes(G, 'avatar_url', avatars)
 
 # Optional: preview
-nx.draw(G)
+# nx.draw(G)
 
 # Save the graph in a .json file
 with open('twitter_graph.json', 'wb') as f:
