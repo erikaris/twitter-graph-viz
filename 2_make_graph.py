@@ -15,9 +15,9 @@ api = API(auth, wait_on_rate_limit=True)
 user = api.get_user(screen_name)
 
 # nodes = followers + followingers
-# links = relationship between node
+# friendships = relationship between node
 nodes = {}
-links = []
+friendships = {}
 
 # Include current user to nodes
 nodes[user.id] = {
@@ -27,30 +27,26 @@ nodes[user.id] = {
 }
 
 # Read all followers
-with open('twitter_followers.csv', 'rbU') as f:
-    table = csv.reader(f)
-    for id, name, followers_count, avatar_url in table:
-        # put each follower in nodes
-        nodes[id] = {
-            'id': id,
-            'name': name,
-            'avatar_url': avatar_url
-        }
+if os.path.exists('twitter_followers.csv'):
+    with open('twitter_followers.csv', 'rbU') as f:
+        table = csv.reader(f)
+        for id, name, followers_count, avatar_url in table:
+            # put each follower in nodes
+            nodes[id] = {
+                'id': id,
+                'name': name,
+                'avatar_url': avatar_url
+            }
 
 # Load finished links frindship
-if os.path.exists('twitter_graph.json'):
-    with open('twitter_graph.json', 'rbU') as f:
-        try:
-            data = json.loads(f.read())
-            for l in data['links']:
-                links.append((l['source'], l['target']))
-        except:
-            pass
+if os.path.exists('twitter_followers_friendship.csv'):
+    with open('twitter_followers_friendship.csv', 'rbU') as f:
+        for id_a, id_b, str_fr in csv.reader(f):
+            friendships[(id_a, id_b)] = str_fr == 'True'
 
 # Determine friendship between each node
 current_iteration = 1;
 total_iteration = len(nodes) * (len(nodes) - 1)
-processed_friendship = []
 
 for id_a, user_a in nodes.items():
     for id_b, user_b in nodes.items():
@@ -59,7 +55,7 @@ for id_a, user_a in nodes.items():
             continue
 
         # Skip if friendship is already processed
-        if (id_a, id_b) in processed_friendship:
+        if (id_a, id_b) in list(friendships.keys()):
             continue
 
         # If error tweepy.error.TweepError: Not authorized is happened,
@@ -80,58 +76,46 @@ for id_a, user_a in nodes.items():
                                                      'Yes' if user_b_status.followed_by else 'No'))
 
             # If follower is followed by followinger, then add to links
-            if user_a_status.followed_by:
-                links.append((user_a['id'], user_b['id']))
+            friendships[(user_a['id'], user_b['id'])] = user_a_status.followed_by
 
             # If followinger is followed by follower, then add to links
-            if user_b_status.followed_by:
-                links.append((user_b['id'], user_a['id']))
+            friendships[(user_b['id'], user_a['id'])] = user_b_status.followed_by
 
             ### Since it will take a long time, it's worth to save data in every iteration,
             ### so everytime you can resume it, without have to start from beginning
-            # Simulate graph in NetworkX
-            G = nx.DiGraph(links)
-
-            # Add name and avatar_url to node attribute
-            names = {}
-            avatars = {}
-            for id, node in nodes.items():
-                names[id] = node['name']
-                avatars[id] = node['avatar_url']
-
-            nx.set_node_attributes(G, names, 'name')
-            nx.set_node_attributes(G, avatars, 'avatar_url')
-
-            # Save the graph in a .json file
-            with open('twitter_graph.json', 'wb') as f:
-                f.write(json.dumps(nx.json_graph.node_link_data(G)).encode('utf-8'))
+            # Save the followers friendship in a .csv file
+            with open('twitter_followers_friendship.csv', 'wb') as f:
+                writer = csv.writer(f, encoding='utf-8')
+                for id_a, id_b in friendships.keys():
+                    writer.writerow((id_a, id_b, friendships[(id_a, id_b)]))
 
         except TweepError as e:
             pass
 
-        # Add to processed_friendship
-        processed_friendship.append((id_a, id_b))
-        processed_friendship.append((id_b, id_a))
-
         current_iteration += 1
 
 
-# # Simulate graph in NetworkX
-# G = nx.DiGraph(links)
-#
-# # Add name and avatar_url to node attribute
-# names = {}
-# avatars = {}
-# for id, node in nodes.items():
-#     names[id] = node['name']
-#     avatars[id] = node['avatar_url']
-#
-# nx.set_node_attributes(G, 'name', names)
-# nx.set_node_attributes(G, 'avatar_url', avatars)
-#
-# # Optional: preview
-# # nx.draw(G)
-#
-# # Save the graph in a .json file
-# with open('twitter_graph.json', 'wb') as f:
-#     f.write(json.dumps(nx.json_graph.node_link_data(G)))
+# Simulate graph in NetworkX
+links = []
+for (id_a, id_b), followed_by in friendships.items():
+    if followed_by:
+        links.append((id_a, id_b))
+
+G = nx.DiGraph(links)
+
+# Add name and avatar_url to node attribute
+names = {}
+avatars = {}
+for id, node in nodes.items():
+    names[id] = node['name']
+    avatars[id] = node['avatar_url']
+
+nx.set_node_attributes(G, names, 'name')
+nx.set_node_attributes(G, avatars, 'avatar_url')
+
+# Optional: preview
+# nx.draw(G)
+
+# Save the graph in a .json file
+with open('twitter_graph.json', 'wb') as f:
+    f.write(json.dumps(nx.json_graph.node_link_data(G)).encode('utf-8'))
