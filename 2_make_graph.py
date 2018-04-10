@@ -45,7 +45,7 @@ if os.path.exists('twitter_followers_friendship.csv'):
             friendships[(id_a, id_b)] = str_fr == 'True'
 
 # Determine friendship between each node
-current_iteration = 1;
+current_iteration = 1
 total_iteration = len(nodes) * (len(nodes) - 1)
 
 for id_a, user_a in nodes.items():
@@ -56,6 +56,17 @@ for id_a, user_a in nodes.items():
 
         # Skip if friendship is already processed
         if (id_a, id_b) in list(friendships.keys()):
+            # Print on-screen error
+            print('{} of {}. Is {} followed by {} ? {}'
+                  .format(current_iteration, total_iteration, user_a['name'], user_b['name'],
+                          'Yes' if friendships[(id_a, id_b)] else 'No'))
+            current_iteration += 1
+
+            print('{} of {}. Is {} followed by {} ? {}'
+                  .format(current_iteration, total_iteration, user_b['name'], user_a['name'],
+                          'Yes' if friendships[(id_a, id_b)] else 'No'))
+            current_iteration += 1
+
             continue
 
         # If error tweepy.error.TweepError: Not authorized is happened,
@@ -67,13 +78,15 @@ for id_a, user_a in nodes.items():
             user_a_status, user_b_status = api.show_friendship(source_id=id_a, target_id=id_b)
 
             # Print on-screen info to see the progress
-            print('{} of {}'.format(current_iteration, total_iteration))
+            print('{} of {}. Is {} followed by {} ? {}'.format(current_iteration, total_iteration, user_a['name'],
+                                                               user_b['name'],
+                                                               'Yes' if user_a_status.followed_by else 'No'))
+            current_iteration += 1
 
-            print('Is {} followed by {} ? {}'.format(user_a['name'], user_b['name'],
-                                                     'Yes' if user_a_status.followed_by else 'No'))
-
-            print('Is {} followed by {} ? {}'.format(user_b['name'], user_a['name'],
-                                                     'Yes' if user_b_status.followed_by else 'No'))
+            print('{} of {}. Is {} followed by {} ? {}'.format(current_iteration, total_iteration, user_b['name'],
+                                                               user_a['name'],
+                                                               'Yes' if user_b_status.followed_by else 'No'))
+            current_iteration += 1
 
             # If follower is followed by followinger, then add to links
             friendships[(user_a['id'], user_b['id'])] = user_a_status.followed_by
@@ -90,10 +103,17 @@ for id_a, user_a in nodes.items():
                     writer.writerow((id_a, id_b, friendships[(id_a, id_b)]))
 
         except TweepError as e:
-            pass
+            friendships[(user_a['id'], user_b['id'])] = False
+            friendships[(user_b['id'], user_a['id'])] = False
 
-        current_iteration += 1
+            # Print on-screen error
+            print('{} of {}. Is {} followed by {} ? Checking friendship raise error. Message: {}'
+                  .format(current_iteration, total_iteration, user_a['name'], user_b['name'], str(e)))
+            current_iteration += 1
 
+            print('{} of {}. Is {} followed by {} ? Checking friendship raise error. Message: {}'
+                  .format(current_iteration, total_iteration, user_b['name'], user_a['name'], str(e)))
+            current_iteration += 1
 
 # Simulate graph in NetworkX
 links = []
