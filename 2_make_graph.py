@@ -77,6 +77,11 @@ for id_a, user_a in nodes.items():
             # Check friendship between followinger and follower
             user_a_status, user_b_status = api.show_friendship(source_id=id_a, target_id=id_b)
 
+            # If follower is followed by followinger, then add to links
+            friendships[(user_a['id'], user_b['id'])] = user_a_status.followed_by
+            # If followinger is followed by follower, then add to links
+            friendships[(user_b['id'], user_a['id'])] = user_b_status.followed_by
+
             # Print on-screen info to see the progress
             print('{} of {}. Is {} followed by {} ? {}'.format(current_iteration, total_iteration, user_a['name'],
                                                                user_b['name'],
@@ -88,21 +93,8 @@ for id_a, user_a in nodes.items():
                                                                'Yes' if user_b_status.followed_by else 'No'))
             current_iteration += 1
 
-            # If follower is followed by followinger, then add to links
-            friendships[(user_a['id'], user_b['id'])] = user_a_status.followed_by
-
-            # If followinger is followed by follower, then add to links
-            friendships[(user_b['id'], user_a['id'])] = user_b_status.followed_by
-
-            ### Since it will take a long time, it's worth to save data in every iteration,
-            ### so everytime you can resume it, without have to start from beginning
-            # Save the followers friendship in a .csv file
-            with open('twitter_followers_friendship.csv', 'wb') as f:
-                writer = csv.writer(f, encoding='utf-8')
-                for id_a, id_b in friendships.keys():
-                    writer.writerow((id_a, id_b, friendships[(id_a, id_b)]))
-
         except TweepError as e:
+            # If error happened, then set friendship to false
             friendships[(user_a['id'], user_b['id'])] = False
             friendships[(user_b['id'], user_a['id'])] = False
 
@@ -114,6 +106,14 @@ for id_a, user_a in nodes.items():
             print('{} of {}. Is {} followed by {} ? Checking friendship raise error. Message: {}'
                   .format(current_iteration, total_iteration, user_b['name'], user_a['name'], str(e)))
             current_iteration += 1
+
+        ### Since it will take a long time, it's worth to save data in every iteration,
+        ### so everytime you can resume it, without have to start from beginning
+        # Save the followers friendship in a .csv file
+        with open('twitter_followers_friendship.csv', 'wb') as f:
+            writer = csv.writer(f, encoding='utf-8')
+            for id_a, id_b in friendships.keys():
+                writer.writerow((id_a, id_b, friendships[(id_a, id_b)]))
 
 # Simulate graph in NetworkX
 links = []
